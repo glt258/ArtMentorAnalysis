@@ -7,22 +7,22 @@ from matplotlib.patches import FancyBboxPatch
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from matplotlib.cm import ScalarMappable
-import pandas as pd  # 引入 pandas 库
+import pandas as pd  # Import pandas
 
 
-# 自定义颜色映射，渐变从灰白色到深绿色
-cmap = plt.cm.get_cmap("Greens")  # 使用 Matplotlib 的 "Greens" 渐变色
-gray_color = "#0f0f0f"  # 用于表示无数据的灰白色
+# Custom color mapping, gradient from off-white to dark green
+cmap = plt.cm.get_cmap("Greens")  # Using Matplotlib's "Greens" gradient
+gray_color = "#0f0f0f"  # Off-white for no data 用于表示无数据的灰白色
 norm = Normalize(vmin=0, vmax=1)
 
-# 定义9个维度名称
+# Define the 9 dimension names
 dimensions = [
     "Realistic", "Deformation", "Imagination", "Color Richness",
     "Color Contrast", "Line Combination", "Line Texture",
     "Picture Organization", "Transformation"
 ]
 
-# 1. 加载JSON数据
+# 1. Load JSON file
 def load_json_data(file_path):
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
@@ -31,20 +31,20 @@ def load_json_data(file_path):
         print(f"File not found: {file_path}")
         return None
 
-# 2. 定义标准化函数
+# 2. Define the normalize function
 def normalize(value, min_value, max_value):
     if max_value - min_value == 0:
         return 0
     return (value - min_value) / (max_value - min_value)
 
-# 3. 计算评分差异度（SD），并反转其值，让差异越小越接近1
+# 3. Calculate Score Difference and invert it to make it's difference closer to 1计算评分差异度（SD），并反转其值，让差异越小越接近1
 def calculate_sd(score_data):
     total_diff = 0
     valid_rounds = 0
 
     for round_data in score_data:
         if round_data["round"] == 1:
-            continue  # 跳过初始化的 round 1 数据
+            continue  # Skip round 1
         gpt_score = round_data['data']['scores']['initGPTscore']
         user_score = round_data['data']['scores']['current']
 
@@ -59,13 +59,13 @@ def calculate_sd(score_data):
                 continue
 
     if valid_rounds == 0:
-        return np.nan  # 无数据则返回空值
+        return np.nan  # Return NULL if there is no data无数据则返回空值
 
     sd = total_diff / valid_rounds
     normalized_sd = 1 - normalize(sd, 0, 5)
     return normalized_sd
 
-# 4. 计算SC (评分接受度)
+# 4. Calculate SC(Score Consistency)
 def calculate_sc(score_data):
     gpt_scores = []
     user_scores = []
@@ -80,14 +80,13 @@ def calculate_sc(score_data):
             user_scores.append(float(user_score))
 
     if len(gpt_scores) < 1 or len(user_scores) < 1:
-        return np.nan  # 无数据则返回空值
-
+        return np.nan  # Return NULL if there is no data
     score_diffs = np.abs(np.array(gpt_scores) - np.array(user_scores))
     max_diff = 5.0
     normalized_diff = 1 - (np.mean(score_diffs) / max_diff)
     return normalize(normalized_diff, 0, 1)
 
-# 5. 计算SV（评分波动度），并反转其值
+# 5. Calculate Score Volatility and invert it计算SV（评分波动度），并反转其值
 def calculate_sv(score_data):
     user_scores = []
     for round_data in score_data:
@@ -98,13 +97,13 @@ def calculate_sv(score_data):
             user_scores.append(float(user_score))
 
     if len(user_scores) <= 0:
-        return np.nan  # 无数据则返回空值
+        return np.nan  # Return NULL if there is no data无数据则返回空值
 
     sv = np.std(user_scores)
     normalized_sv = 1 - normalize(sv, 0, 5)
     return normalized_sv
 
-# 6. 计算TAR（文本修改率），并反转其值
+# 6. Calculate Text Modification Rate and invert it计算TAR（文本修改率），并反转其值
 def calculate_tar(text_data):
     total_added = total_removed = total_gpt_length = 0
     for round_data in text_data:
@@ -121,9 +120,9 @@ def calculate_tar(text_data):
         tar = total_removed / (total_added + total_gpt_length)
         normalized_tar = 1 - normalize(tar, 0, 1)
         return normalized_tar
-    return np.nan  # 无数据则返回空值
+    return np.nan  # Return NULL if there is no data无数据则返回空值
 
-# 7. 计算文本相似度（TS）
+# 7. Calculate Text Similarity(TS)计算文本相似度（TS）
 def calculate_text_similarity(text_data, is_suggestion=False):
     gpt_texts = []
     user_texts = []
@@ -141,23 +140,23 @@ def calculate_text_similarity(text_data, is_suggestion=False):
             user_texts.append(user_text)
 
     if not gpt_texts or not user_texts:
-        return np.nan  # 无数据则返回空值
+        return np.nan  # Return NULL if there is no data无数据则返回空值
 
     vectorizer = CountVectorizer(analyzer='char').fit_transform([gpt_texts[-1], user_texts[-1]])
     vectors = vectorizer.toarray()
     if len(vectors) > 1:
         similarity = cosine_similarity(vectors)[0][1]
         return normalize(similarity, 0, 1)
-    return np.nan  # 无数据则返回空值
+    return np.nan  # Return NULL if there is no data无数据则返回空值
 
-# 生成圆角矩形
+# Generate draw rounded square生成圆角矩形
 def draw_rounded_square(ax, color, x, y, size=0.9, radius=0.2):
     square = FancyBboxPatch((x, y), size, size,
                             boxstyle=f"round,pad=0,rounding_size={radius}",
                             facecolor=color, edgecolor='none')
     ax.add_patch(square)
 
-# 生成华夫饼图
+# Generate waffle chart生成华夫饼图
 def plot_custom_waffle_chart(image_metrics, metric_name):
     n_rows = 4  # 固定每行4个格子
     n_cols = 5  # 固定每列5个格子
@@ -177,7 +176,7 @@ def plot_custom_waffle_chart(image_metrics, metric_name):
         color = gray_color if np.isnan(value) else cmap(norm(value))
         draw_rounded_square(ax, color, x, y)
 
-    # 添加颜色渐变图例
+    # Add a color gradient legend添加颜色渐变图例
     sm = ScalarMappable(cmap=cmap, norm=norm)
     sm.set_array([])
 
@@ -186,7 +185,7 @@ def plot_custom_waffle_chart(image_metrics, metric_name):
 
     plt.show()
 
-# 9. 批量处理文件并计算每张图片的指标
+# 9. Batch process files and calculate metrics for each image批量处理文件并计算每张图片的指标
 def process_directory(score_review_dir, suggestion_dir):
     image_metrics = []
     for image_num in range(1, 21):
@@ -215,7 +214,7 @@ def process_directory(score_review_dir, suggestion_dir):
             avg_ts = np.nanmean(ts_values)
             avg_sd = np.nanmean(sd_values)
 
-            # 打印每张图片的各个指标
+            # Print each image's metrics打印每张图片的各个指标
             print(f"Image: {image_num}.jpg, SC: {avg_sc}, SV: {avg_sv}, TAR: {avg_tar}, TS: {avg_ts}, SD: {avg_sd}")
 
             image_metrics.append({
@@ -227,15 +226,15 @@ def process_directory(score_review_dir, suggestion_dir):
                 "SD": avg_sd
             })
 
-        # 将结果保存到 DataFrame
+        # Save the resul to DataFrame将结果保存到 DataFrame
     df = pd.DataFrame(image_metrics)
 
-    # 导出到 Excel 文件
+    # Save result to Excel导出到 Excel 文件
     output_file = "image_metrics.xlsx"
     df.to_excel(output_file, index=False)
     print(f"Metrics exported to {output_file}")
 
-    # 生成各项指标的华夫饼图
+    # Generate waffle charts for every metrics生成各项指标的华夫饼图
     plot_custom_waffle_chart(image_metrics, "SC")
     plot_custom_waffle_chart(image_metrics, "SV")
     plot_custom_waffle_chart(image_metrics, "TAR")
@@ -243,9 +242,9 @@ def process_directory(score_review_dir, suggestion_dir):
     plot_custom_waffle_chart(image_metrics, "SD")
 
 
-# 主函数入口
+# Main function
 if __name__ == "__main__":
-    # 指定存放JSON文件的目录
+    # Specify the directory to store JSON files
     score_review_directory = "score_Review"
     suggestion_directory = "suggestion"
 
