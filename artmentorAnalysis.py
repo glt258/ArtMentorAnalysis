@@ -60,7 +60,7 @@ def process_score_analysis(score_review_dir, output_file):
         original_scores = dim_scores['original']
         current_scores = dim_scores['current']
 
-        # 计算SC和SD
+        # Calculate SC and SD
         sc_value = get_sc(original_scores, current_scores)
         sd_value = get_sd(original_scores, current_scores)
 
