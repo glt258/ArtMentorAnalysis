@@ -7,7 +7,7 @@ from matplotlib.patches import FancyBboxPatch
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from matplotlib.cm import ScalarMappable
-import pandas as pd  # 引入 pandas 库
+import pandas as pd  # Import pandas
 
 
 # 自定义颜色映射，渐变从灰白色到深绿色
